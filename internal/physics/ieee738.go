@@ -8,7 +8,6 @@ const (
 	solarAbsorptivity = 0.9
 	emissivity        = 0.9
 	stefanBoltzmann   = 5.67e-8
-	conductorAngle    = 60.0 * math.Pi / 180.0
 	airDensity        = 1.165
 	airViscosity      = 1.85e-5
 	airThermalCond    = 0.0263
@@ -21,6 +20,7 @@ type WeatherData struct {
 	WindDir        float64
 	LineAzimuth    float64
 	SolarRadiation float64
+	SolarElevation float64
 }
 
 func Calculate(w WeatherData, c Conductor) float64 {
@@ -55,7 +55,14 @@ func Calculate(w WeatherData, c Conductor) float64 {
 	if solar < 0 {
 		solar = 0
 	}
-	qs := solarAbsorptivity * solar * diameter * math.Sin(conductorAngle)
+	solarElevation := w.SolarElevation
+	if solarElevation <= 0 {
+		solarElevation = 60
+	}
+	if solarElevation > 90 {
+		solarElevation = 90
+	}
+	qs := solarAbsorptivity * solar * diameter * math.Sin(solarElevation*math.Pi/180)
 
 	r := c.R20 * (1 + c.Alpha*(c.MaxTemp-20.0))
 

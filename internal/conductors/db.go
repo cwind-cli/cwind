@@ -1,5 +1,10 @@
 package conductors
 
+import (
+	"fmt"
+	"math"
+)
+
 type Conductor struct {
 	ID               string
 	Name             string
@@ -212,4 +217,26 @@ func List() []Conductor {
 		result = append(result, c)
 	}
 	return result
+}
+
+func (c Conductor) Validate() error {
+	if c.ID == "" {
+		return fmt.Errorf("conductor sin identificador")
+	}
+	if c.DiameterMeters <= 0 || math.IsNaN(c.DiameterMeters) || math.IsInf(c.DiameterMeters, 0) {
+		return fmt.Errorf("conductor %q: diámetro inválido", c.ID)
+	}
+	if c.R20 <= 0 || math.IsNaN(c.R20) || math.IsInf(c.R20, 0) {
+		return fmt.Errorf("conductor %q: resistencia R20 inválida", c.ID)
+	}
+	if c.Alpha < 0 || math.IsNaN(c.Alpha) || math.IsInf(c.Alpha, 0) {
+		return fmt.Errorf("conductor %q: coeficiente térmico inválido", c.ID)
+	}
+	if c.MaxTemp <= -273.15 || math.IsNaN(c.MaxTemp) || math.IsInf(c.MaxTemp, 0) {
+		return fmt.Errorf("conductor %q: temperatura máxima inválida", c.ID)
+	}
+	if c.StaticRating <= 0 || math.IsNaN(c.StaticRating) || math.IsInf(c.StaticRating, 0) {
+		return fmt.Errorf("conductor %q: ampacidad estática inválida", c.ID)
+	}
+	return nil
 }

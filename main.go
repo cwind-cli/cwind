@@ -2,8 +2,11 @@ package main
 
 import (
 	"github.com/cwind-cli/cwind/cmd"
+	"os"
 )
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

@@ -17,24 +17,40 @@ type Coordinate struct {
 }
 
 func ParseFile(path string) (Coordinate, error) {
+	trace, err := ParseTraceFile(path)
+	if err != nil {
+		return Coordinate{}, err
+	}
+	return centroid(trace), nil
+}
+
+func parseTraceFile(path string) (Trace, error) {
 	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(path)))
 	if ext != ".csv" && ext != ".kml" {
-		return Coordinate{}, fmt.Errorf("formato no compatible: use un archivo .csv o .kml")
+		return nil, fmt.Errorf("formato no compatible: use un archivo .csv o .kml")
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		return Coordinate{}, fmt.Errorf("abrir archivo: %w", err)
+		return nil, fmt.Errorf("abrir archivo: %w", err)
 	}
 	defer f.Close()
 
 	if ext == ".kml" {
-		return parseKML(f)
+		return parseKMLTrace(f)
 	}
-	return parseCSV(f)
+	return parseCSVTrace(f)
 }
 
 func parseKML(r io.Reader) (Coordinate, error) {
+	coords, err := parseKMLTrace(r)
+	if err != nil {
+		return Coordinate{}, err
+	}
+	return centroid(coords), nil
+}
+
+func parseKMLTrace(r io.Reader) (Trace, error) {
 	dec := xml.NewDecoder(r)
 	var coords []Coordinate
 
@@ -44,12 +60,12 @@ func parseKML(r io.Reader) (Coordinate, error) {
 			break
 		}
 		if err != nil {
-			return Coordinate{}, fmt.Errorf("parsear KML: %w", err)
+			return nil, fmt.Errorf("parsear KML: %w", err)
 		}
 		if se, ok := tok.(xml.StartElement); ok && se.Name.Local == "coordinates" {
 			var text string
 			if err := dec.DecodeElement(&text, &se); err != nil {
-				return Coordinate{}, fmt.Errorf("leer coordenadas KML: %w", err)
+				return nil, fmt.Errorf("leer coordenadas KML: %w", err)
 			}
 			coords = parseCoordString(text)
 			break
@@ -57,23 +73,31 @@ func parseKML(r io.Reader) (Coordinate, error) {
 	}
 
 	if len(coords) == 0 {
-		return Coordinate{}, fmt.Errorf("no se encontraron coordenadas en KML")
+		return nil, fmt.Errorf("no se encontraron coordenadas en KML")
+	}
+	return coords, nil
+}
+
+func parseCSV(r io.Reader) (Coordinate, error) {
+	coords, err := parseCSVTrace(r)
+	if err != nil {
+		return Coordinate{}, err
 	}
 	return centroid(coords), nil
 }
 
-func parseCSV(r io.Reader) (Coordinate, error) {
+func parseCSVTrace(r io.Reader) (Trace, error) {
 	reader := csv.NewReader(r)
 	reader.Comma = ','
 	reader.TrimLeadingSpace = true
 
 	records, err := reader.ReadAll()
 	if err != nil {
-		return Coordinate{}, fmt.Errorf("leer CSV: %w", err)
+		return nil, fmt.Errorf("leer CSV: %w", err)
 	}
 
 	if len(records) < 2 {
-		return Coordinate{}, fmt.Errorf("CSV vacío o solo cabecera")
+		return nil, fmt.Errorf("CSV vacío o solo cabecera")
 	}
 
 	latIndex, lonIndex := -1, -1
@@ -86,7 +110,7 @@ func parseCSV(r io.Reader) (Coordinate, error) {
 		}
 	}
 	if latIndex < 0 || lonIndex < 0 {
-		return Coordinate{}, fmt.Errorf("CSV: la cabecera debe incluir columnas lat,lon o Latitud_DD,Longitud_DD")
+		return nil, fmt.Errorf("CSV: la cabecera debe incluir columnas lat,lon o Latitud_DD,Longitud_DD")
 	}
 
 	var coords []Coordinate
@@ -95,26 +119,26 @@ func parseCSV(r io.Reader) (Coordinate, error) {
 			continue
 		}
 		if len(row) <= latIndex || len(row) <= lonIndex {
-			return Coordinate{}, fmt.Errorf("CSV: fila %d debe contener latitud y longitud", i+1)
+			return nil, fmt.Errorf("CSV: fila %d debe contener latitud y longitud", i+1)
 		}
 		lat, err1 := strconv.ParseFloat(strings.TrimSpace(row[latIndex]), 64)
 		lon, err2 := strconv.ParseFloat(strings.TrimSpace(row[lonIndex]), 64)
 		if err1 != nil || err2 != nil {
-			return Coordinate{}, fmt.Errorf("CSV: fila %d debe contener latitud y longitud numéricas", i+1)
+			return nil, fmt.Errorf("CSV: fila %d debe contener latitud y longitud numéricas", i+1)
 		}
 		if lat < -90 || lat > 90 {
-			return Coordinate{}, fmt.Errorf("CSV: latitud inválida en fila %d (debe estar entre -90 y 90)", i+1)
+			return nil, fmt.Errorf("CSV: latitud inválida en fila %d (debe estar entre -90 y 90)", i+1)
 		}
 		if lon < -180 || lon > 180 {
-			return Coordinate{}, fmt.Errorf("CSV: longitud inválida en fila %d (debe estar entre -180 y 180)", i+1)
+			return nil, fmt.Errorf("CSV: longitud inválida en fila %d (debe estar entre -180 y 180)", i+1)
 		}
 		coords = append(coords, Coordinate{Lat: lat, Lon: lon})
 	}
 
 	if len(coords) == 0 {
-		return Coordinate{}, fmt.Errorf("no hay coordenadas válidas en CSV")
+		return nil, fmt.Errorf("no hay coordenadas válidas en CSV")
 	}
-	return centroid(coords), nil
+	return coords, nil
 }
 
 func parseCoordString(s string) []Coordinate {
