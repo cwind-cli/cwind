@@ -1,0 +1,13 @@
+# Local build artifacts
+/cwind.exe
+/dist/
+
+# Go tooling
+*.test
+*.out
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

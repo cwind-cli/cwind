@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" \
+            -o "dist/cwind_${version}_windows_amd64.exe" .
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" \
+            -o "dist/cwind_${version}_linux_amd64" .
+          (cd dist && sha256sum * > checksums.txt)
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/cwind_*
+            dist/checksums.txt
